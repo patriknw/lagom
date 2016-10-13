@@ -3,6 +3,8 @@
  */
 package com.lightbend.lagom.scaladsl.persistence
 
+import scala.reflect.ClassTag
+
 object AggregateEventTag {
   /**
    * Convenience factory method of [[AggregateEventTag]] that uses the
@@ -10,14 +12,16 @@ object AggregateEventTag {
    * retain the original tag when the class name is changed because
    * the tag is part of the store event data.
    */
-  def apply[Event <: AggregateEvent[Event]](eventType: Class[Event]): AggregateEventTag[Event] =
+  def apply[Event <: AggregateEvent[Event]: ClassTag](): AggregateEventTag[Event] = {
+    val eventType = implicitly[ClassTag[Event]].runtimeClass.asInstanceOf[Class[Event]]
     new AggregateEventTag(eventType, eventType.getName)
+  }
 
   /**
    * Factory method of [[AggregateEventTag]].
    */
-  def apply[Event <: AggregateEvent[Event]](eventType: Class[Event], tag: String): AggregateEventTag[Event] =
-    new AggregateEventTag(eventType, tag)
+  def apply[Event <: AggregateEvent[Event]: ClassTag](tag: String): AggregateEventTag[Event] =
+    new AggregateEventTag(implicitly[ClassTag[Event]].runtimeClass.asInstanceOf[Class[Event]], tag)
 
   /**
    * Create an aggregate event shards tagger.
@@ -32,12 +36,14 @@ object AggregateEventTag {
    * same entity will be produced by different event streams and handled by different shards in the read side
    * processor, leading to out of order event handling.
    *
-   * @param eventType The type of the event.
+   * @tparam eventType The type of the event.
    * @param numShards The number of shards.
    * @return The aggregate event shards tagger.
    */
-  def sharded[Event <: AggregateEvent[Event]](eventType: Class[Event], numShards: Int): AggregateEventShards[Event] =
-    sharded(eventType, eventType.getName, numShards)
+  def sharded[Event <: AggregateEvent[Event]: ClassTag](numShards: Int): AggregateEventShards[Event] = {
+    val eventType = implicitly[ClassTag[Event]].runtimeClass.asInstanceOf[Class[Event]]
+    sharded[Event](eventType.getName, numShards)
+  }
 
   /**
    * Create a sharded aggregate event tag.
@@ -49,13 +55,18 @@ object AggregateEventTag {
    * same entity will be produced by different event streams and handled by different shards in the read side
    * processor, leading to out of order event handling.
    *
-   * @param eventType The type of the event.
+   * @tparam eventType The type of the event.
    * @param baseTagName The base name for the tag, this will be combined with the shard number to form the tag name.
    * @param numShards The number of shards.
    * @return The aggregate event shards tagger.
    */
-  def sharded[Event <: AggregateEvent[Event]](eventType: Class[Event], baseTagName: String, numShards: Int): AggregateEventShards[Event] = {
-    new AggregateEventShards[Event](eventType, baseTagName, numShards)
+  def sharded[Event <: AggregateEvent[Event]: ClassTag](
+    baseTagName: String, numShards: Int
+  ): AggregateEventShards[Event] = {
+    new AggregateEventShards[Event](
+      implicitly[ClassTag[Event]].runtimeClass.asInstanceOf[Class[Event]],
+      baseTagName, numShards
+    )
   }
 
   /**
@@ -139,7 +150,7 @@ final class AggregateEventShards[Event <: AggregateEvent[Event]](
    * @param entityId The entity ID to get the tag for.
    * @return The tag.
    */
-  def forEntityId(entityId: String): AggregateEventTag[Event] = AggregateEventTag(
+  def forEntityId(entityId: String): AggregateEventTag[Event] = new AggregateEventTag(
     eventType,
     AggregateEventTag.shardTag(tag, AggregateEventTag.selectShard(numShards, entityId))
   )
@@ -150,7 +161,7 @@ final class AggregateEventShards[Event <: AggregateEvent[Event]](
    * @return All the tags.
    */
   val allTags: Set[AggregateEventTag[Event]] = {
-    (for (shardNo <- 0 until numShards) yield AggregateEventTag(
+    (for (shardNo <- 0 until numShards) yield new AggregateEventTag(
       eventType,
       AggregateEventTag.shardTag(tag, shardNo)
     )).toSet
