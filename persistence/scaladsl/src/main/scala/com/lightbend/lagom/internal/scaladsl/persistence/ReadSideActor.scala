@@ -24,7 +24,7 @@ private[lagom] object ReadSideActor {
     globalPrepareTask:    ClusterStartupTask,
     globalPrepareTimeout: FiniteDuration
   )(implicit mat: Materializer) = {
-    Props(classOf[ReadSideActor[Event]], processor, eventStreamFactory, clazz, globalPrepareTask, globalPrepareTimeout, mat)
+    Props(new ReadSideActor[Event](processor, eventStreamFactory, clazz, globalPrepareTask, globalPrepareTimeout)(mat))
   }
 
   /**

@@ -10,6 +10,7 @@ import akka.stream.scaladsl
 import akka.NotUsed
 import akka.Done
 import scala.concurrent.Future
+import scala.reflect.ClassTag
 
 /**
  * At system startup all [[PersistentEntity]] classes must be registered here
@@ -26,14 +27,14 @@ trait PersistentEntityRegistry {
    * At system startup all [[com.lightbend.lagom.scaladsl.persistence.PersistentEntity]]
    * classes must be registered with this method.
    */
-  def register[C, E, S](entityClass: Class[_ <: PersistentEntity[C, E, S]]): Unit
+  def register[P <: PersistentEntity: ClassTag](): Unit
 
   /**
    * Retrieve a [[com.lightbend.lagom.scaladsl.persistence.PersistentEntityRef]] for a
    * given [[com.lightbend.lagom.scaladsl.persistence.PersistentEntity]] class
    * and identifier. Commands are sent to a `PersistentEntity` using a `PersistentEntityRef`.
    */
-  def refFor[C](entityClass: Class[_ <: PersistentEntity[C, _, _]], entityId: String): PersistentEntityRef[C]
+  def refFor[P <: PersistentEntity: ClassTag](entityId: String): PersistentEntityRef[P#Command]
 
   /**
    * A stream of the persistent events that have the given `aggregateTag`, e.g.

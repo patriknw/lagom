@@ -37,7 +37,7 @@ object ClusterStartupTask {
     randomBackoffFactor: Double
   ): ClusterStartupTask = {
 
-    val startupTaskProps = Props(classOf[ClusterStartupTaskActor], task, taskTimeout)
+    val startupTaskProps = Props(new ClusterStartupTaskActor(task, taskTimeout))
 
     val backoffProps = BackoffSupervisor.propsWithSupervisorStrategy(
       startupTaskProps, taskName, minBackoff, maxBackoff, randomBackoffFactor, SupervisorStrategy.stoppingStrategy

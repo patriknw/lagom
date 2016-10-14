@@ -18,18 +18,6 @@ import com.lightbend.lagom.scaladsl.persistence.PersistentEntity
 import com.lightbend.lagom.scaladsl.persistence.PersistentEntity.ReplyType
 
 object PersistentEntityTestDriver {
-  final case class Outcome[E, S](
-    events: immutable.Seq[E], state: S,
-    sideEffects: immutable.Seq[SideEffect],
-    issues:      immutable.Seq[Issue]
-  ) {
-
-    /**
-     * The messages that were sent as replies using the context that is
-     * passed as parameter to the command handler functions.
-     */
-    def getReplies: immutable.Seq[Any] = sideEffects.collect { case Reply(msg) => msg }
-  }
 
   trait SideEffect
 
@@ -68,8 +56,24 @@ object PersistentEntityTestDriver {
  * It also verifies that all commands, events, replies and state are
  * serializable, and reports any such problems in the `issues` of the `Outcome`.
  */
-class PersistentEntityTestDriver[C, E, S](system: ActorSystem, entity: PersistentEntity[C, E, S], entityId: String) {
+class PersistentEntityTestDriver(val system: ActorSystem, val entity: PersistentEntity, val entityId: String) {
   import PersistentEntityTestDriver._
+
+  type C = entity.Command
+  type E = entity.Event
+  type S = entity.State
+
+  final case class Outcome(
+    events: immutable.Seq[E], state: S,
+    sideEffects: immutable.Seq[SideEffect],
+    issues: immutable.Seq[Issue]) {
+
+    /**
+     * The messages that were sent as replies using the context that is
+     * passed as parameter to the command handler functions.
+     */
+    def getReplies: immutable.Seq[Any] = sideEffects.collect { case Reply(msg) => msg }
+  }
 
   private val serialization = SerializationExtension(system)
 
@@ -97,7 +101,7 @@ class PersistentEntityTestDriver[C, E, S](system: ActorSystem, entity: Persisten
    * @param events The additional events to run before invoking `recoveryCompleted`
    * @return The outcome.
    */
-  def initialize(snapshotState: Option[S], events: E*): Outcome[E, S] = {
+  def initialize(snapshotState: Option[S], events: E*): Outcome = {
     if (initialized) {
       throw new IllegalStateException("The entity has already been initialized")
     }
@@ -123,8 +127,7 @@ class PersistentEntityTestDriver[C, E, S](system: ActorSystem, entity: Persisten
 
   private val unhandledState: Catcher[Nothing] = {
     case e: MatchError ⇒ throw new IllegalStateException(
-      s"Undefined state [${state.getClass.getName}] in [${entity.getClass.getName}] with id [${entityId}]"
-    )
+      s"Undefined state [${state.getClass.getName}] in [${entity.getClass.getName}] with id [${entityId}]")
   }
 
   private def unhandledCommand: PartialFunction[(C, entity.CommandContext, S), entity.Persist[_]] = {
@@ -132,6 +135,8 @@ class PersistentEntityTestDriver[C, E, S](system: ActorSystem, entity: Persisten
       issues :+= UnhandledCommand(cmd)
       entity.persistNone
   }
+
+  def run(command: entity.Command): Outcome = run(List(command))
 
   /**
    * The entity will process the commands and the emitted events and side effects
@@ -142,7 +147,7 @@ class PersistentEntityTestDriver[C, E, S](system: ActorSystem, entity: Persisten
    * into manageable steps. The `Outcome` contains the events and side-effects of
    * the last `run`, but the state is not reset between different runs.
    */
-  def run(commands: C*): Outcome[E, S] = {
+  private def run(commands: immutable.Seq[C]): Outcome = {
     sideEffects = Vector.empty
     issues = Vector.empty
 
@@ -157,8 +162,7 @@ class PersistentEntityTestDriver[C, E, S](system: ActorSystem, entity: Persisten
         override def reply[R](currentCommand: C with ReplyType[R], msg: R): Unit = {
           if (currentCommand ne c) throw new IllegalArgumentException(
             "Reply must be sent in response to the command that is currently processed, " +
-              s"Received command is [$cmd], but reply was to [$currentCommand]"
-          )
+              s"Received command is [$cmd], but reply was to [$currentCommand]")
           sideEffects :+= Reply(msg)
           issues ++= checkSerialization(msg)
         }
@@ -214,7 +218,7 @@ class PersistentEntityTestDriver[C, E, S](system: ActorSystem, entity: Persisten
     }
 
     allIssues ++= issues
-    Outcome[E, S](producedEvents, state, sideEffects, issues)
+    Outcome(producedEvents, state, sideEffects, issues)
   }
 
   /**
@@ -252,8 +256,7 @@ class PersistentEntityTestDriver[C, E, S](system: ActorSystem, entity: Persisten
               case Success(obj2) =>
                 if (obj != obj2) {
                   Some(NotEqualAfterSerialization(
-                    s"Object [$obj] does not equal [$obj2] after serialization/deserialization", obj1, obj2
-                  ))
+                    s"Object [$obj] does not equal [$obj2] after serialization/deserialization", obj1, obj2))
                 } else if (serializer.isInstanceOf[JavaSerializer] && !isOkForJavaSerialization(obj1.getClass))
                   Some(UsingJavaSerializer(obj1))
                 else

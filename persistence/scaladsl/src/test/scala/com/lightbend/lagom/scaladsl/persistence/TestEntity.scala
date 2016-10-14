@@ -67,9 +67,12 @@ object TestEntity {
   final case class AfterRecovery(state: State)
 }
 
-class TestEntity @Inject() (system: ActorSystem, probe: Option[ActorRef] = None)
-  extends PersistentEntity[TestEntity.Cmd, TestEntity.Evt, TestEntity.State] {
+class TestEntity @Inject() (system: ActorSystem, probe: Option[ActorRef] = None) extends PersistentEntity {
   import TestEntity._
+
+  override type Command = TestEntity.Cmd
+  override type Event = TestEntity.Evt
+  override type State = TestEntity.State
 
   override def initialState: State = State.empty
 

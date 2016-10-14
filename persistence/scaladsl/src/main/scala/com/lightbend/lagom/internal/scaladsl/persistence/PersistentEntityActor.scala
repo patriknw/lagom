@@ -24,10 +24,10 @@ import akka.persistence.journal.Tagged
 import play.api.Logger
 
 private[lagom] object PersistentEntityActor {
-  def props[C, E, S](
+  def props(
     persistenceIdPrefix:       String,
     entityId:                  Option[String],
-    entityFactory:             () => PersistentEntity[C, E, S],
+    entityFactory:             () => PersistentEntity,
     snapshotAfter:             Option[Int],
     passivateAfterIdleTimeout: FiniteDuration
   ): Props =
@@ -44,13 +44,18 @@ private[lagom] object PersistentEntityActor {
 /**
  * The `PersistentActor` that runs a [[com.lightbend.lagom.scaladsl.persistence.PersistentEntity]].
  */
-private[lagom] class PersistentEntityActor[C, E, S](
+private[lagom] class PersistentEntityActor(
   persistenceIdPrefix:       String,
   id:                        Option[String],
-  entity:                    PersistentEntity[C, E, S],
+  entity:                    PersistentEntity,
   snapshotAfter:             Int,
   passivateAfterIdleTimeout: FiniteDuration
 ) extends PersistentActor {
+
+  private type C = entity.Command
+  private type E = entity.Event
+  private type S = entity.State
+
   private val log = Logger(this.getClass)
 
   private val entityId: String = id.getOrElse(

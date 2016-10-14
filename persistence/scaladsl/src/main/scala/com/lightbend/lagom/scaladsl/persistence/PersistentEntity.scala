@@ -83,14 +83,24 @@ object PersistentEntity {
  * To reduce this recovery time the entity may start the recovery from a snapshot
  * of the state and then only replaying the events that were stored after the snapshot.
  * Such snapshots are automatically saved after a configured number of persisted events.
- *
- * @tparam Command the super type of all commands, must implement [[PersistentEntity.ReplyType]]
- *   to define the reply type of each command type
- * @tparam Event the super type of all events
- * @tparam State the type of the state
  */
-abstract class PersistentEntity[Command, Event, State] {
+abstract class PersistentEntity {
   import PersistentEntity.ReplyType
+
+  /**
+   * The super type of all commands, must be defined in concrete subclass.
+   * Each concrete command must implement [[PersistentEntity.ReplyType]] to define the
+   * reply type of a specific command type.
+   */
+  type Command
+  /**
+   * The super type of all events, must be defined in concrete subclass.
+   */
+  type Event
+  /**
+   * The type of the state, must be defined in concrete subclass.
+   */
+  type State
 
   type Behavior = State => Actions
   type EventHandler = PartialFunction[(Event, State), State]
@@ -141,9 +151,8 @@ abstract class PersistentEntity[Command, Event, State] {
    * and persisted events. `Actions` is an immutable class.
    */
   class Actions(
-    val eventHandler:   EventHandler,
-    val commandHandler: CommandHandler
-  ) extends Function1[State, Actions] {
+    val eventHandler: EventHandler,
+    val commandHandler: CommandHandler) extends Function1[State, Actions] {
 
     /**
      * Extends `State => Actions` so that it can be used directly in

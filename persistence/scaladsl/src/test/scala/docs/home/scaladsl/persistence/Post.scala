@@ -60,8 +60,12 @@ object Post {
 
 }
 
-final class Post extends PersistentEntity[Post.BlogCommand, Post.BlogEvent, Post.BlogState] {
+final class Post extends PersistentEntity {
   import Post._
+
+  override type Command = Post.BlogCommand
+  override type Event = Post.BlogEvent
+  override type State = Post.BlogState
 
   override def initialState: BlogState = BlogState.empty
 

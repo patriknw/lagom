@@ -121,7 +121,7 @@ private[cluster] object EnsureActiveActor {
   final case object Tick extends DeadLetterSuppression
 
   def props(entityIds: Set[EntityId], shardRegion: ActorRef, ensureActiveInterval: FiniteDuration) =
-    Props(classOf[EnsureActiveActor], entityIds, shardRegion, ensureActiveInterval)
+    Props(new EnsureActiveActor(entityIds, shardRegion, ensureActiveInterval))
 }
 
 private[cluster] class EnsureActiveActor(entityIds: Set[EntityId], shardRegion: ActorRef,
